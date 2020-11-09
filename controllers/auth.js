@@ -55,25 +55,25 @@ exports.signin = (req, res) => {
   let { email, password } = req.body;
 
   if (!email) {
-    return res.status(422).send("Email is required.");
+    return res.status(422).json({ email: "Email is required." });
   }
   if (!emailRegexp.test(email)) {
-    return res.status(422).send("Invalid Email.");
+    return res.status(422).json({ email: "Invalid Email." });
   }
   if (!password) {
-    return res.status(422).send("Password is required.");
+    return res.status(422).json({ password: "Password is required." });
   }
 
   User.findOne({ email: email })
     .then((user) => {
       if (!user) {
-        return res.status(404).send("User Not Found");
+        return res.status(404).json({ email: "User Not Found" });
       }
       bcrypt
         .compare(password, user.password)
         .then((isMatch) => {
           if (!isMatch) {
-            return res.status(400).send("Wrong Password");
+            return res.status(400).json({ password: "Wrong Password" });
           }
           let access_token = createJWT(user.email, user._id, 3600);
           jwt.verify(access_token, process.env.TOKEN_SECRET, (err, decoded) => {
