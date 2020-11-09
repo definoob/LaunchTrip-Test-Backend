@@ -5,36 +5,27 @@ const { createJWT } = require("../utils/auth");
 const emailRegexp = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
 exports.signup = (req, res, next) => {
   let { name, email, password, password_confirmation } = req.body;
-  let errors = [];
+
   if (!name) {
-    errors.push({ name: "required" });
+    return res.status(422).json({ name: "Name is required." });
   }
   if (!email) {
-    errors.push({ email: "required" });
+    return res.status(422).json({ email: "Email is required." });
   }
   if (!emailRegexp.test(email)) {
-    errors.push({ email: "invalid" });
+    return res.status(422).json({ email: "Invalid Email." });
   }
   if (!password) {
-    errors.push({ password: "required" });
-  }
-  if (!password_confirmation) {
-    errors.push({
-      password_confirmation: "required",
-    });
+    return res.status(422).json({ password: "Password is required." });
   }
   if (password != password_confirmation) {
-    errors.push({ password: "mismatch" });
+    return res.status(422).json({ confirm: "Password not match." });
   }
-  if (errors.length > 0) {
-    return res.status(422).json({ errors: errors });
-  }
+
   User.findOne({ email: email })
     .then((user) => {
       if (user) {
-        return res
-          .status(422)
-          .json({ errors: [{ user: "email already exists" }] });
+        return res.status(422).json({ email: "Email already exists" });
       } else {
         const user = new User({
           name: name,
@@ -53,76 +44,52 @@ exports.signup = (req, res, next) => {
                   result: response,
                 });
               })
-              .catch((err) => {
-                res.status(500).json({
-                  errors: [{ error: err }],
-                });
-              });
+              .catch((err) => res.status(500).send(err));
           });
         });
       }
     })
-    .catch((err) => {
-      res.status(500).json({
-        errors: [{ error: "Something went wrong" }],
-      });
-    });
+    .catch(() => res.status(500).send("Something went wrong"));
 };
 exports.signin = (req, res) => {
   let { email, password } = req.body;
-  let errors = [];
+
   if (!email) {
-    errors.push({ email: "required" });
+    return res.status(422).send("Email is required.");
   }
   if (!emailRegexp.test(email)) {
-    errors.push({ email: "invalid email" });
+    return res.status(422).send("Invalid Email.");
   }
   if (!password) {
-    errors.push({ passowrd: "required" });
-  }
-  if (errors.length > 0) {
-    return res.status(422).json({ errors: errors });
+    return res.status(422).send("Password is required.");
   }
 
   User.findOne({ email: email })
     .then((user) => {
       if (!user) {
-        return res.status(404).json({
-          errors: [{ user: "not found" }],
-        });
-      } else {
-        bcrypt
-          .compare(password, user.password)
-          .then((isMatch) => {
-            if (!isMatch) {
-              return res
-                .status(400)
-                .json({ errors: [{ password: "incorrect" }] });
-            }
-            let access_token = createJWT(user.email, user._id, 3600);
-            jwt.verify(
-              access_token,
-              process.env.TOKEN_SECRET,
-              (err, decoded) => {
-                if (err) {
-                  res.status(500).json({ erros: err.toString() });
-                }
-                if (decoded) {
-                  return res.status(200).json({
-                    success: true,
-                    token: access_token,
-                    message: user,
-                  });
-                }
-              }
-            );
-          })
-          .catch((err) => {
-            res.status(500).json({ erros: err.toString() });
-          });
+        return res.status(404).send("User Not Found");
       }
+      bcrypt
+        .compare(password, user.password)
+        .then((isMatch) => {
+          if (!isMatch) {
+            return res.status(400).send("Wrong Password");
+          }
+          let access_token = createJWT(user.email, user._id, 3600);
+          jwt.verify(access_token, process.env.TOKEN_SECRET, (err, decoded) => {
+            if (err) {
+              res.status(500).send(err.toString());
+            }
+            if (decoded) {
+              return res.status(200).json({
+                success: true,
+                token: access_token,
+                message: user,
+              });
+            }
+          });
+        })
+        .catch((err) => res.status(500).send(err.toString()));
     })
-    .catch((err) => {
-      res.status(500).json({ erros: err });
-    });
+    .catch((err) => res.status(500).send(err));
 };
